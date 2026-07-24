@@ -349,21 +349,21 @@ python pmp_physical_continuum.py \
 
 The anchor bias is
 
-\[
+```math
 b_h
 =
 x_{\mathrm{HOME}}^{\mathrm{measured}}
 -
 f_\theta(q_{\mathrm{HOME}}),
-\]
+```
 
 and the corrected prediction is
 
-\[
+```math
 \hat{x}(q)
 =
 f_\theta(q)+b_h.
-\]
+```
 
 This translation aligns the learned model with the measured HOME point but
 does not correct configuration-dependent model errors.
@@ -411,14 +411,14 @@ python pmp_physical_continuum.py \
 
 The reduced-coordinate update uses
 
-\[
+```math
 J_{u,\lambda}^{\dagger}
 =
 J_u^T
 \left(
 J_uJ_u^T+\lambda^2I
 \right)^{-1}.
-\]
+```
 
 The Jacobian-transpose implementation can be selected using:
 
@@ -447,21 +447,21 @@ python pmp_physical_continuum.py \
 
 The Cartesian virtual command is
 
-\[
+```math
 F_{\mathrm{task}}
 =
 K_p(x_{\mathrm{ref}}-\hat{x})
 +
 D_p(\dot{x}_{\mathrm{ref}}-\dot{\hat{x}}).
-\]
+```
 
 The reduced-coordinate update is
 
-\[
+```math
 \dot{u}
 =
 (I-B_Q)C_uM(F_{\mathrm{task}}),
-\]
+```
 
 where \(M\) is either the DLS or Jacobian-transpose differential mapping.
 
@@ -646,9 +646,9 @@ X: [N, m]
 
 and train a differentiable forward model
 
-\[
+```math
 \hat{x}=f_\theta(q).
-\]
+```
 
 The training samples should cover the region in which the controller will be
 used. Prediction and Jacobian reliability are not guaranteed outside the
@@ -658,9 +658,9 @@ sampled actuation domain.
 
 The supplied platform uses
 
-\[
+```math
 q=A u.
-\]
+```
 
 For another robot, replace `A_REDUCED_TO_Q4` with the appropriate mapping, or
 remove the reduced-coordinate layer when all actuator coordinates can be
