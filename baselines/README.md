@@ -1,8 +1,18 @@
 # Baseline Benchmarks
 
 This directory contains the repeated algorithmic benchmarks used to compare
-KS-MP with conventional reference-tracking and iterative inverse-solving
+KS-MP with conventional reference-tracking and iterative reference-solving
 baselines.
+
+The baseline studies follow a controlled-comparison principle. Rather than
+comparing unrelated implementations, the methods retain a common experimental
+scaffold, including the robot body schema, reference trajectory, initial
+condition, target, integration timestep, and evaluation horizon wherever
+applicable. The reference-tracking and reference-solving baselines differ from
+KS-MP only in the control or inverse-solving mechanism required by their
+respective objectives. This design isolates the effect of the update strategy
+while avoiding confounding differences in robot modelling, reference
+generation, or evaluation settings.
 
 The benchmark scripts import the corresponding robot models from:
 
