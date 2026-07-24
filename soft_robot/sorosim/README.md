@@ -28,9 +28,9 @@ sorosim/
 
 Trains and evaluates a differentiable soft-arm body schema
 
-\[
+```math
 \hat{x}=f_\theta(q),
-\]
+```
 
 where:
 
@@ -78,18 +78,18 @@ representation.
 
 The controller-internal tip position is
 
-\[
+```math
 \hat{x}=f_\theta(q),
-\]
+```
 
 and its Jacobian is
 
-\[
+```math
 J_\theta(q)
 =
 \frac{\partial f_\theta(q)}
 {\partial q}.
-\]
+```
 
 Consequently, the tracking deviations reported directly by `pmp_soft.py`
 measure convergence within the learned representation.
@@ -533,25 +533,25 @@ time,x_sim,y_sim,z_sim
 
 The three principal comparisons are then:
 
-\[
+```math
 e_{\mathrm{Pred-Ref}}
 =
 \hat{x}-x_{\mathrm{ref}},
-\]
+```
 
-\[
+```math
 e_{\mathrm{Sim-Ref}}
 =
 x_{\mathrm{sim}}-x_{\mathrm{ref}},
-\]
+```
 
 and
 
-\[
+```math
 e_{\mathrm{Pred-Sim}}
 =
 \hat{x}-x_{\mathrm{sim}}.
-\]
+```
 
 The Pred–Sim discrepancy measures disagreement between the learned body schema
 and the SoRoSim model along the generated trajectory.
@@ -589,11 +589,11 @@ jacobian(q)
 
 with:
 
-\[
+```math
 \hat{x}=f_\theta(q),
 \qquad
 J_\theta(q)=\frac{\partial f_\theta(q)}{\partial q}.
-\]
+```
 
 The reliability of both the prediction and Jacobian depends on the coverage of
 the training samples. Extrapolation outside the sampled internal-coordinate
