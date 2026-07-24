@@ -27,6 +27,11 @@ This repository contains implementations for:
 It also includes baseline controllers, trained body-schema models,
 experiment configurations, and scripts for reproducing the principal results.
 
+## Citation
+
+When using this implementation, please cite the accompanying KS-MP article.
+The full citation will be added following publication.
+
 ## Repository structure
 
 ```text
