@@ -1,21 +1,40 @@
 # Parallel Robot Implementation
 
-This directory contains the KS-MP implementation for a geometric 6-SPS
-parallel platform.
+This directory contains the KS-MP implementation for a custom 6-SPS
+Gough–Stewart parallel platform.
 
-The platform body schema maps the six-dimensional platform pose to six leg
-lengths. Its differential map is evaluated numerically and used within the
-same discrete-time KS-MP control structure adopted for the other robot
-morphologies in this repository.
+Two body-schema configurations are provided:
 
-## File
+1. an **analytic body schema**, which maps platform pose to leg lengths using
+   the platform geometry and evaluates the Jacobian numerically;
+2. an optional **learned body schema**, supplied as a pretrained checkpoint
+   and used in a controlled analytic-versus-learned comparison.
+
+The main KS-MP implementation uses the analytic body schema. The learned model
+is included to demonstrate that the controller can retain the same reference,
+gains, differential mapping, participation matrix, damping, and integration
+structure while replacing only the morphology-specific body schema.
+
+## Directory structure
+
+```text
+parallel_robot/
+├── README.md
+├── pmp_parallel.py
+├── compare_body_schemas.py
+└── models/
+    └── parallel_body_schema.pth
+```
+
+## Files
 
 ### `pmp_parallel.py`
 
+Main KS-MP implementation for the geometric 6-SPS platform.
+
 The script provides:
 
-- a geometric model of a 6-SPS Gough–Stewart platform;
-- pose-to-leg-length mapping;
+- a geometric pose-to-leg-length map;
 - numerical evaluation of the leg-length Jacobian;
 - minimum-jerk goal-directed references;
 - VTGS references;
@@ -26,33 +45,157 @@ The script provides:
 - explicit Euler integration;
 - trajectory and controller logging.
 
+### `compare_body_schemas.py`
+
+Performs a controlled comparison between:
+
+- analytic geometry with a finite-difference Jacobian;
+- a learned pose-to-leg-length map with an
+  automatic-differentiation Jacobian.
+
+The two runs use the same:
+
+- initial pose;
+- target leg lengths;
+- reference trajectory;
+- controller gains;
+- DLS or Jacobian-transpose mapping;
+- participation matrix;
+- damping;
+- integration timestep;
+- evaluation horizon.
+
+Both generated trajectories are additionally evaluated using the analytic
+geometry. This separates controller-internal convergence from disagreement
+between the learned and analytic body schemas.
+
+### `models/parallel_body_schema.pth`
+
+Pretrained learned body-schema checkpoint used by
+`compare_body_schemas.py`.
+
+The checkpoint follows the structure-informed model design described in:
+
+> F. Wang, F. N. Siraj, W. Hutabarat, and A. Tiwari,  
+> “Physics-Informed Passive Motion Paradigm for Parallel Robots:
+> A High-Precision Motor-Primitives Framework,”  
+> *IEEE Robotics and Automation Letters*, vol. 11, no. 2,
+> pp. 1874–1881, 2026.  
+> [IEEE Xplore](https://ieeexplore.ieee.org/document/11302776) |
+> [DOI](https://doi.org/10.1109/LRA.2025.3645663)
+
+The checkpoint is provided to reproduce the body-schema substitution
+experiment. The training workflow from the earlier study is not repeated in
+this directory.
+
+## Body-schema definitions
+
+The platform pose is represented as
+
+```text
+T = [x, y, z, roll, pitch, yaw]
+```
+
+and the corresponding actuator state is
+
+```text
+L = [L1, L2, L3, L4, L5, L6]
+```
+
+### Analytic body schema
+
+The geometric body schema evaluates
+
+$$
+L = f_{\mathrm{geom}}(T)
+$$
+
+from the known base and moving-platform attachment points.
+
+Its differential map is
+
+$$
+J_{\mathrm{geom}}
+=
+\frac{\partial L}{\partial T}
+$$
+
+In `pmp_parallel.py`, this Jacobian is evaluated using finite differences.
+
+### Learned body schema
+
+The learned model retains the platform pose as the core input. A rigid-body
+transformation first maps the local moving-platform attachment points into
+the base frame:
+
+$$
+P_i^{g}
+=
+R(\mathrm{roll},\mathrm{pitch},\mathrm{yaw})P_i
++
+[x,y,z]^T
+$$
+
+The transformed attachment points are then processed by a differentiable
+neural network to predict the six leg lengths:
+
+$$
+\hat{L}
+=
+f_{\theta}(T)
+$$
+
+The learned Jacobian is evaluated through automatic differentiation:
+
+$$
+J_{\theta}(T)
+=
+\frac{\partial \hat{L}}{\partial T}
+$$
+
+Embedding the rigid-body transformation in the forward path preserves an
+explicit connection between platform geometry and the learned
+pose-to-leg-length mapping.
+
+In the current comparison script, the transformed coordinates of the six
+moving-platform points are flattened and passed to a structure-informed neural
+network. The hidden width is inferred from the checkpoint when possible and
+can be overridden using `--hidden-dim`.
+
 ## Reproducibility scope
 
-This implementation reproduces the model-based parallel-robot experiments at
-the algorithmic level.
+The scripts reproduce the parallel-robot experiments at the algorithmic level.
 
-The script evolves a platform pose using the geometric 6-SPS model and
-generates the corresponding leg-length trajectories. It does not communicate
-directly with the physical platform or implement actuator-level feedback.
+`pmp_parallel.py` evolves the platform pose using the geometric 6-SPS body
+schema and generates the corresponding leg-length trajectories. It does not
+communicate directly with the physical platform or implement actuator-level
+feedback.
 
-For the physical demonstrations reported in the accompanying work, the
-generated discrete leg-length set-points were transferred to the platform
-through a separate hardware playback interface. That hardware-specific
-interface is not included in this standalone implementation.
+For the reported physical demonstrations, generated leg-length set-points were
+transferred to the platform using a separate hardware playback interface. That
+hardware-specific interface is not included here.
 
-The final leg-length deviations reported by this script are therefore
-controller-internal, geometry-based quantities rather than direct physical
-measurements.
+The body-schema comparison is also model based. The supplied learned model was
+trained using analytically generated pose-to-leg-length relationships.
+Therefore, this comparison evaluates substitution of the body-schema
+implementation; it should not be interpreted as learning unmodelled physical
+effects from sensor data.
 
 ## Requirements
 
-- Python 3
-- NumPy
+The geometric implementation requires:
 
-Install the required package with:
+- Python 3;
+- NumPy.
+
+The analytic-versus-learned comparison additionally requires:
+
+- PyTorch.
+
+Install the required packages with:
 
 ```bash
-pip install numpy
+pip install numpy torch
 ```
 
 ## Basic usage
@@ -63,10 +206,11 @@ Run the examples from this directory:
 cd parallel_robot
 ```
 
+## Geometric KS-MP implementation
+
 ### Default oscillatory example
 
-The default command executes the predefined oscillatory primitive sequence
-using the default platform pose and controller parameters:
+The default command executes the predefined oscillatory primitive sequence:
 
 ```bash
 python pmp_parallel.py
@@ -78,11 +222,9 @@ The current default sequence is:
 CBA
 ```
 
-where the primitives are executed sequentially within one primitive duration.
-
 ### Minimum-jerk leg-length reference
 
-Run a goal-directed movement toward a specified set of six leg lengths:
+Run a goal-directed movement toward six target leg lengths:
 
 ```bash
 python pmp_parallel.py \
@@ -90,19 +232,13 @@ python pmp_parallel.py \
   --target 1249.9 1255.8 1329.8 1351.2 1330.9 1303.3
 ```
 
-The target values are expressed in millimetres and ordered as:
+The target order is:
 
 ```text
 L1 L2 L3 L4 L5 L6
 ```
 
 ### Specify the initial platform pose
-
-The platform pose is ordered as:
-
-```text
-x y z roll pitch yaw
-```
 
 Translations are expressed in millimetres and rotations in degrees:
 
@@ -115,8 +251,6 @@ python pmp_parallel.py \
 
 ### VTGS reference
 
-Run the VTGS reference generator in leg-length space:
-
 ```bash
 python pmp_parallel.py \
   --traj vtgs \
@@ -125,7 +259,7 @@ python pmp_parallel.py \
 
 ### Single oscillatory primitive
 
-Run a single heave primitive:
+Run a heave primitive:
 
 ```bash
 python pmp_parallel.py \
@@ -136,8 +270,6 @@ python pmp_parallel.py \
 ```
 
 ### Sequential oscillatory primitives
-
-Run a sequence of primitives:
 
 ```bash
 python pmp_parallel.py \
@@ -159,40 +291,38 @@ python pmp_parallel.py \
 
 ## Oscillatory primitives
 
-The implementation provides four pose-space primitives.
-
 | Primitive | Pose components |
 |---|---|
-| `A` | Coupled translation along \(x\) and pitch rotation |
-| `B` | Coupled translation along \(y\) and roll rotation |
-| `C` | Vertical heave along \(z\) |
-| `D` | Coupled edge-rolling motion involving \(x\), \(y\), roll, and pitch |
+| `A` | Coupled translation along $x$ and pitch rotation |
+| `B` | Coupled translation along $y$ and roll rotation |
+| `C` | Vertical heave along $z$ |
+| `D` | Coupled edge-rolling motion involving $x$, $y$, roll, and pitch |
 
-The translational amplitudes are specified as:
+Translational amplitudes are ordered as:
 
 ```text
 Ax Ay Az
 ```
 
-using:
+and specified using:
 
 ```bash
 --osc-pos-amp 100 100 220
 ```
 
-The rotational amplitudes are specified as:
+Rotational amplitudes are ordered as:
 
 ```text
 Aroll Apitch Ayaw
 ```
 
-using:
+and specified using:
 
 ```bash
 --osc-ang-amp 15 15 5
 ```
 
-The implementation supports sinusoidal and triangular waveforms:
+Sinusoidal and triangular waveforms are supported:
 
 ```bash
 python pmp_parallel.py \
@@ -201,7 +331,7 @@ python pmp_parallel.py \
   --osc-wave tri
 ```
 
-The fraction of one cycle executed by each primitive is controlled through:
+The fraction of one cycle executed by each active primitive is controlled by:
 
 ```bash
 --osc-frac 0.25
@@ -222,28 +352,20 @@ python pmp_parallel.py \
   --lam2 1e-4
 ```
 
-The numerical differential map is
+The mapping is
 
-\[
+$$
 J_{\lambda}^{\dagger}
 =
-J^{T}
+J^T
 \left(
-JJ^{T}+\lambda^{2}I
-\right)^{-1},
-\]
-
-where
-
-\[
-J = \frac{\partial L}{\partial T}
-\]
-
-maps platform-pose variations to leg-length variations.
+JJ^T+\lambda^2I
+\right)^{-1}
+$$
 
 ### Jacobian-transpose mapping
 
-Use the Jacobian-transpose realisation with:
+Use the Jacobian-transpose implementation with:
 
 ```bash
 python pmp_parallel.py \
@@ -251,12 +373,12 @@ python pmp_parallel.py \
   --use-jt
 ```
 
-The two mappings share the same reference generator, participation matrix,
-damping terms, and explicit integration structure.
+Both mappings use the same reference generator, participation matrix, damping
+terms, and explicit integration structure.
 
 ## Participation matrix
 
-The diagonal participation matrix acts on the six platform-pose coordinates:
+The diagonal participation matrix acts on:
 
 ```text
 x y z roll pitch yaw
@@ -269,8 +391,8 @@ python pmp_parallel.py \
   --c-vec 1 1 1 1 1 1
 ```
 
-A selected pose coordinate can be removed from the update by setting its
-entry to zero. For example:
+A selected pose coordinate can be removed from the update by setting its entry
+to zero:
 
 ```bash
 python pmp_parallel.py \
@@ -280,17 +402,13 @@ python pmp_parallel.py \
 
 This example suppresses the pitch-coordinate update.
 
-Such a restricted participation matrix may prevent the platform from reaching
-a leg-length target that requires motion in the removed pose direction.
-Consequently, a large final deviation should be interpreted as a geometric
-compatibility limitation under the selected pose subspace, rather than simply
-as numerical tracking noise.
+A restricted participation matrix may make a target incompatible with the
+remaining pose subspace. A large final deviation under such a setting should
+therefore not be interpreted solely as numerical tracking noise.
 
 ## Gains and damping
 
 ### Isotropic leg-length gain
-
-Set a common gain for all six legs:
 
 ```bash
 python pmp_parallel.py \
@@ -299,18 +417,14 @@ python pmp_parallel.py \
 
 ### Per-leg gains
 
-Specify six individual gains:
-
 ```bash
 python pmp_parallel.py \
   --kp-vec 100 100 100 100 100 100
 ```
 
-When provided, `--kp-vec` overrides `--kp`.
+`--kp-vec` overrides `--kp`.
 
 ### Isotropic leg-length damping
-
-Set a common damping value:
 
 ```bash
 python pmp_parallel.py \
@@ -319,18 +433,14 @@ python pmp_parallel.py \
 
 ### Per-leg damping
 
-Specify six individual damping values:
-
 ```bash
 python pmp_parallel.py \
   --dp-vec 0.2 0.2 0.2 0.2 0.2 0.2
 ```
 
-When provided, `--dp-vec` overrides `--dp`.
+`--dp-vec` overrides `--dp`.
 
 ### Pose-coordinate damping
-
-Pose-coordinate damping is specified using six diagonal entries:
 
 ```bash
 python pmp_parallel.py \
@@ -356,30 +466,254 @@ The moving-platform attachment angles are:
 15°, 45°, 135°, 165°, 255°, 285°
 ```
 
-The platform geometry is defined directly in `pmp_parallel.py` and can be
-modified for another 6-SPS mechanism.
+The geometry is defined directly in the Python scripts and can be modified for
+another 6-SPS mechanism.
 
 ## Numerical Jacobian
 
-The leg-length Jacobian is evaluated using forward finite differences:
+The analytic body schema uses the finite-difference Jacobian
 
-\[
-J
+$$
+J_{\mathrm{geom}}
 =
 \frac{\partial L}
-{\partial [x,y,z,\mathrm{roll},\mathrm{pitch},\mathrm{yaw}]}.
-\]
+{\partial [x,y,z,\mathrm{roll},\mathrm{pitch},\mathrm{yaw}]}
+$$
 
 The default perturbations are:
 
-- \(10^{-3}\) mm for the translational coordinates;
-- \(0.1^\circ\) for the rotational coordinates.
+- $10^{-3}$ mm for translational coordinates;
+- $0.1^\circ$ for rotational coordinates.
 
-The resulting Jacobian combines translational and rotational columns with
-different physical units. This convention follows the pose parameterisation
-used by the implementation.
+The Jacobian therefore combines translational and rotational columns with
+different physical units.
 
-## Default settings
+## Analytic-versus-learned body-schema comparison
+
+Ensure that the checkpoint is located at:
+
+```text
+models/parallel_body_schema.pth
+```
+
+Then run:
+
+```bash
+python compare_body_schemas.py \
+  --run-name target_1
+```
+
+The default command uses:
+
+- `models/parallel_body_schema.pth`;
+- a minimum-jerk leg-length reference;
+- 1500 steps;
+- a timestep of 0.004 s;
+- a duration of 6 s;
+- isotropic gain 100;
+- isotropic damping 0.2;
+- DLS regularisation $10^{-4}$;
+- full pose-coordinate participation;
+- zero pose-coordinate damping.
+
+### Explicit comparison command
+
+```bash
+python compare_body_schemas.py \
+  --model models/parallel_body_schema.pth \
+  --device auto \
+  --traj minjerk \
+  --pose0 0 0 1238.87723 0 0 0 \
+  --target 1249.9 1255.8 1329.8 1351.2 1330.9 1303.3 \
+  --steps 1500 \
+  --dt 0.004 \
+  --submv-T 6 \
+  --kp 100 \
+  --dp 0.2 \
+  --lam2 1e-4 \
+  --bq-diag 0 0 0 0 0 0 \
+  --c-vec 1 1 1 1 1 1 \
+  --run-name target_1
+```
+
+### Specify a target platform pose
+
+Instead of entering leg lengths directly, a target pose can be converted using
+the analytic body schema:
+
+```bash
+python compare_body_schemas.py \
+  --model models/parallel_body_schema.pth \
+  --target-pose 20 -10 1280 2 -3 1 \
+  --run-name target_pose_example
+```
+
+### Force CPU execution
+
+```bash
+python compare_body_schemas.py \
+  --model models/parallel_body_schema.pth \
+  --device cpu \
+  --run-name target_1_cpu
+```
+
+### Override the hidden width
+
+The script normally infers the hidden width from the checkpoint. It can be
+overridden when required:
+
+```bash
+python compare_body_schemas.py \
+  --model models/parallel_body_schema.pth \
+  --hidden-dim 256 \
+  --run-name target_1
+```
+
+## Comparison metrics
+
+The comparison separates the following quantities.
+
+### Controller-internal tracking deviation
+
+For the analytic run:
+
+$$
+e_{\mathrm{internal}}^{\mathrm{analytic}}
+=
+L_{\mathrm{ref}}-L_{\mathrm{geom}}
+$$
+
+For the learned run:
+
+$$
+e_{\mathrm{internal}}^{\mathrm{learned}}
+=
+L_{\mathrm{ref}}-\hat{L}
+$$
+
+These metrics quantify convergence within the body schema used by each
+controller.
+
+### Analytic-geometry replay deviation
+
+Both generated pose trajectories are evaluated through the same analytic
+geometry:
+
+$$
+e_{\mathrm{geom}}
+=
+L_{\mathrm{ref}}-L_{\mathrm{geom}}(T)
+$$
+
+This provides a common model-based evaluation space.
+
+### Forward-model discrepancy
+
+The learned-versus-analytic leg-length discrepancy is
+
+$$
+e_{\mathrm{model}}
+=
+\hat{L}(T)-L_{\mathrm{geom}}(T)
+$$
+
+### Jacobian discrepancy
+
+At selected diagnostic steps, the script computes
+
+$$
+\frac{
+\left\|
+J_{\theta}-J_{\mathrm{geom}}
+\right\|_F
+}{
+\left\|
+J_{\mathrm{geom}}
+\right\|_F
+}
+$$
+
+### Runtime
+
+Core controller-step timing excludes the shared post-update diagnostic replay.
+The first timing samples can be removed using:
+
+```bash
+--timing-warmup 10
+```
+
+The learned-versus-analytic Jacobian comparison frequency is controlled by:
+
+```bash
+--diagnostic-stride 10
+```
+
+## Comparison outputs
+
+For a run named `target_1`, the script writes:
+
+```text
+body_schema_comparison_results/
+├── target_1_summary.csv
+├── target_1_pairwise.csv
+├── target_1_analytic_trajectory.csv
+├── target_1_learned_trajectory.csv
+└── target_1_metadata.json
+```
+
+### `target_1_summary.csv`
+
+Contains one summary row for each body schema, including:
+
+- internal tracking RMS;
+- analytic-geometry replay RMS;
+- final target deviation;
+- learned-versus-analytic forward-map discrepancy;
+- learned-versus-analytic Jacobian discrepancy;
+- Jacobian condition statistics;
+- core runtime statistics;
+- final platform pose.
+
+### `target_1_pairwise.csv`
+
+Contains direct analytic-versus-learned comparisons, including:
+
+- geometry-replay RMS difference and ratio;
+- final geometry-target deviation difference;
+- runtime ratio;
+- learned internal-to-geometry deviation gap;
+- learned forward-model discrepancy;
+- learned Jacobian discrepancy.
+
+### Trajectory files
+
+The analytic and learned trajectory files contain per-step:
+
+- reference leg lengths;
+- controller-internal leg lengths;
+- analytic leg lengths;
+- learned leg lengths;
+- internal and analytic replay deviations;
+- model discrepancy;
+- platform pose and pose rate;
+- Jacobian conditioning;
+- Jacobian discrepancy at diagnostic steps;
+- core controller runtime.
+
+### `target_1_metadata.json`
+
+Records:
+
+- checkpoint path;
+- device;
+- initial pose;
+- initial analytic and learned leg lengths;
+- target;
+- controller parameters;
+- output paths;
+- interpretation note.
+
+## Default geometric-controller settings
 
 | Parameter | Default value |
 |---|---:|
@@ -393,9 +727,9 @@ used by the implementation.
 | Primitive duration | 6 s |
 | Leg-length gain | 100 |
 | Leg-length damping | 0.2 |
-| DLS regularisation, \(\lambda^2\) | \(10^{-4}\) |
-| Participation matrix | \(I_6\) |
-| Pose-coordinate damping | \(0_{6\times6}\) |
+| DLS regularisation, $\lambda^2$ | $10^{-4}$ |
+| Participation matrix | $I_6$ |
+| Pose-coordinate damping | $0_{6\times6}$ |
 
 The default initial pose is:
 
@@ -411,74 +745,53 @@ The default target leg lengths are:
 
 ## Coordinate and unit conventions
 
-- Platform pose:
-  `[x, y, z, roll, pitch, yaw]`
-- Translation:
-  millimetres
-- Orientation:
-  degrees
-- Leg lengths:
-  millimetres
-- Time:
-  seconds
+- Platform pose: `[x, y, z, roll, pitch, yaw]`
+- Translation: millimetres
+- Orientation: degrees
+- Leg lengths: millimetres
+- Time: seconds
 - Rotation convention:
-  \(R_z(\mathrm{yaw})R_y(\mathrm{pitch})R_x(\mathrm{roll})\)
+  $R_z(\mathrm{yaw})R_y(\mathrm{pitch})R_x(\mathrm{roll})$
+- Jacobian translation columns: mm/mm
+- Jacobian rotation columns: mm/deg
 
-## Outputs
+## Geometric-controller outputs
 
-Each run writes two files to the current working directory.
+Each `pmp_parallel.py` run writes:
+
+```text
+results_head_parallel.csv
+results_parallel.txt
+```
 
 ### `results_head_parallel.csv`
 
-The complete trajectory log contains:
+Contains:
 
 - time;
 - current leg lengths;
 - reference leg lengths;
 - leg-length-space virtual command;
 - platform pose-rate update;
-- updated platform pose.
-
-The first line also records the principal controller settings, including:
-
-- mapping type;
-- gains;
-- DLS regularisation;
-- damping values;
-- participation values;
-- timestep;
-- number of steps;
-- primitive duration;
-- reference type.
+- updated platform pose;
+- principal controller settings in the metadata line.
 
 ### `results_parallel.txt`
 
-A compact output containing:
+Contains:
 
 ```text
 x y z roll pitch yaw L1 L2 L3 L4 L5 L6
 ```
 
-for every controller step.
+for each controller step.
 
-## Terminal summary
-
-After execution, the script prints:
-
-- the final platform pose;
-- the final geometric leg lengths;
-- the target leg lengths for goal-directed runs;
-- the final leg-length deviation norm;
-- the generated primitive sequence for oscillatory runs;
-- the names of the saved result files.
-
-The final deviation is calculated from the geometric model and does not
+The final deviation is calculated from the geometric body schema and does not
 represent a physical sensor measurement.
 
-## Example reproduction command
+## Reproduction commands
 
-The following command explicitly reproduces the default goal-directed
-controller configuration:
+### Goal-directed geometric run
 
 ```bash
 python pmp_parallel.py \
@@ -495,7 +808,7 @@ python pmp_parallel.py \
   --c-vec 1 1 1 1 1 1
 ```
 
-The following command reproduces the default staged oscillatory sequence:
+### Staged oscillatory run
 
 ```bash
 python pmp_parallel.py \
@@ -515,3 +828,86 @@ python pmp_parallel.py \
   --bq-diag 0 0 0 0 0 0 \
   --c-vec 1 1 1 1 1 1
 ```
+
+### Controlled body-schema comparison
+
+```bash
+python compare_body_schemas.py \
+  --model models/parallel_body_schema.pth \
+  --traj minjerk \
+  --pose0 0 0 1238.87723 0 0 0 \
+  --target 1249.9 1255.8 1329.8 1351.2 1330.9 1303.3 \
+  --steps 1500 \
+  --dt 0.004 \
+  --submv-T 6 \
+  --kp 100 \
+  --dp 0.2 \
+  --lam2 1e-4 \
+  --bq-diag 0 0 0 0 0 0 \
+  --c-vec 1 1 1 1 1 1 \
+  --run-name target_1
+```
+
+## Checkpoint troubleshooting
+
+### Model file not found
+
+Confirm that the checkpoint is located at:
+
+```text
+parallel_robot/models/parallel_body_schema.pth
+```
+
+and run the command from `parallel_robot/`.
+
+### Missing or unexpected checkpoint keys
+
+The supplied checkpoint must be compatible with the structure-informed network
+implemented in `compare_body_schemas.py`.
+
+A checkpoint from a different model architecture may produce a missing- or
+unexpected-key error. Confirm that the correct file is being used, or provide
+the correct hidden width through `--hidden-dim`.
+
+### CUDA is unavailable
+
+Use:
+
+```bash
+--device cpu
+```
+
+### Non-finite controller state
+
+A non-finite state may indicate:
+
+- a target outside the represented workspace;
+- poor learned-model coverage;
+- an ill-conditioned Jacobian;
+- excessive gains;
+- insufficient DLS regularisation.
+
+Try a closer target, inspect the reported Jacobian condition number, reduce the
+gains, or increase `--lam2`.
+
+## Citation
+
+For the structure-informed learned body schema and its physics-informed
+training formulation, cite:
+
+```bibtex
+@article{wang2026physicsinformed,
+  author  = {Fuli Wang and Fazair Nizar Siraj and Windo Hutabarat and Ashutosh Tiwari},
+  title   = {Physics-Informed Passive Motion Paradigm for Parallel Robots:
+             A High-Precision Motor-Primitives Framework},
+  journal = {IEEE Robotics and Automation Letters},
+  volume  = {11},
+  number  = {2},
+  pages   = {1874--1881},
+  year    = {2026},
+  doi     = {10.1109/LRA.2025.3645663}
+}
+```
+
+When using the unified KS-MP implementation, please also cite the accompanying
+KS-MP article. 
