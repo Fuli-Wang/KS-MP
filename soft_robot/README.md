@@ -8,9 +8,9 @@ do not assume that an analytical kinematic model is available. Instead, a
 differentiable forward model is learned from paired actuation and task-space
 samples:
 
-$$
+```math
 \hat{x}=f_\theta(q),
-$$
+```
 
 where \(q\) denotes the robot's internal or actuation coordinates and
 \(\hat{x}\) denotes the predicted task variable.
@@ -18,12 +18,12 @@ where \(q\) denotes the robot's internal or actuation coordinates and
 The corresponding differential map is obtained through automatic
 differentiation:
 
-$$
+```math
 J_\theta(q)
 =
 \frac{\partial f_\theta(q)}
 {\partial q}.
-$$
+```
 
 This learned forward map and Jacobian are then used within the same KS-MP
 control structure adopted for the other robot morphologies.
