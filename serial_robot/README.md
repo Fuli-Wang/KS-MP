@@ -152,14 +152,14 @@ python pmp_serial.py \
 
 The differential map is
 
-\[
+```math
 J_{\lambda}^{\dagger}
 =
 J^{T}
 \left(
 JJ^{T}+\lambda^{2}I
 \right)^{-1}.
-\]
+```
 
 ### Jacobian-transpose mapping
 
