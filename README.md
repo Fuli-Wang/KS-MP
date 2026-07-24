@@ -41,5 +41,3 @@ KS-MP/
 ├── parallel_robot/
 ├── soft_robot/
 ├── baselines/
-├── experiments/
-└── results/
