@@ -8,9 +8,9 @@ do not assume that an analytical kinematic model is available. Instead, a
 differentiable forward model is learned from paired actuation and task-space
 samples:
 
-\[
+$$
 \hat{x}=f_\theta(q),
-\]
+$$
 
 where \(q\) denotes the robot's internal or actuation coordinates and
 \(\hat{x}\) denotes the predicted task variable.
@@ -18,12 +18,12 @@ where \(q\) denotes the robot's internal or actuation coordinates and
 The corresponding differential map is obtained through automatic
 differentiation:
 
-\[
+$$
 J_\theta(q)
 =
 \frac{\partial f_\theta(q)}
 {\partial q}.
-\]
+$$
 
 This learned forward map and Jacobian are then used within the same KS-MP
 control structure adopted for the other robot morphologies.
@@ -121,28 +121,28 @@ Independent simulator or sensor evaluation
 
 In mathematical form:
 
-\[
+$$
 q
 \longrightarrow
 \hat{x}=f_\theta(q),
-\]
+$$
 
-\[
+$$
 J_\theta(q)
 =
 \frac{\partial f_\theta(q)}
 {\partial q},
-\]
+$$
 
 followed by the task-space virtual command
 
-\[
+$$
 F_{\mathrm{task}}
 =
 K(x_{\mathrm{ref}}-\hat{x})
 +
 B(\dot{x}_{\mathrm{ref}}-\dot{\hat{x}}),
-\]
+$$
 
 and either a damped least-squares or Jacobian-transpose differential mapping.
 
@@ -157,33 +157,33 @@ The following quantities should therefore be distinguished:
 
    The difference between the reference and the learned-model prediction:
 
-   \[
+   $$
    e_{\mathrm{Pred-Ref}}
    =
    \hat{x}-x_{\mathrm{ref}}.
-   \]
+   $$
 
 2. **External tracking deviation**
 
    The difference between the reference and the simulator- or sensor-reported
    task variable:
 
-   \[
+   $$
    e_{\mathrm{External-Ref}}
    =
    x_{\mathrm{external}}-x_{\mathrm{ref}}.
-   \]
+   $$
 
 3. **Model discrepancy**
 
    The difference between the learned-model prediction and the independent
    simulator or physical measurement:
 
-   \[
+   $$
    e_{\mathrm{Pred-External}}
    =
    \hat{x}-x_{\mathrm{external}}.
-   \]
+   $$
 
 For the SoRoSim example, the external quantity is the SoRoSim-reported tip
 position. For the physical continuum robot, it is the camera-measured tip
