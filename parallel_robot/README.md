@@ -105,19 +105,19 @@ L = [L1, L2, L3, L4, L5, L6]
 
 The geometric body schema evaluates
 
-$$
+```math
 L = f_{\mathrm{geom}}(T)
-$$
+```
 
 from the known base and moving-platform attachment points.
 
 Its differential map is
 
-$$
+```math
 J_{\mathrm{geom}}
 =
 \frac{\partial L}{\partial T}
-$$
+```
 
 In `pmp_parallel.py`, this Jacobian is evaluated using finite differences.
 
@@ -127,30 +127,30 @@ The learned model retains the platform pose as the core input. A rigid-body
 transformation first maps the local moving-platform attachment points into
 the base frame:
 
-$$
+```math
 P_i^{g}
 =
 R(\mathrm{roll},\mathrm{pitch},\mathrm{yaw})P_i
 +
 [x,y,z]^T
-$$
+```
 
 The transformed attachment points are then processed by a differentiable
 neural network to predict the six leg lengths:
 
-$$
+```math
 \hat{L}
 =
 f_{\theta}(T)
-$$
+```
 
 The learned Jacobian is evaluated through automatic differentiation:
 
-$$
+```math
 J_{\theta}(T)
 =
 \frac{\partial \hat{L}}{\partial T}
-$$
+```
 
 Embedding the rigid-body transformation in the forward path preserves an
 explicit connection between platform geometry and the learned
@@ -353,14 +353,14 @@ python pmp_parallel.py \
 
 The mapping is
 
-$$
+```math
 J_{\lambda}^{\dagger}
 =
 J^T
 \left(
 JJ^T+\lambda^2I
 \right)^{-1}
-$$
+```
 
 ### Jacobian-transpose mapping
 
@@ -576,19 +576,19 @@ The comparison separates the following quantities.
 
 For the analytic run:
 
-$$
+```math
 e_{\mathrm{internal}}^{\mathrm{analytic}}
 =
 L_{\mathrm{ref}}-L_{\mathrm{geom}}
-$$
+```
 
 For the learned run:
 
-$$
+```math
 e_{\mathrm{internal}}^{\mathrm{learned}}
 =
 L_{\mathrm{ref}}-\hat{L}
-$$
+```
 
 These metrics quantify convergence within the body schema used by each
 controller.
@@ -598,11 +598,11 @@ controller.
 Both generated pose trajectories are evaluated through the same analytic
 geometry:
 
-$$
+```math
 e_{\mathrm{geom}}
 =
 L_{\mathrm{ref}}-L_{\mathrm{geom}}(T)
-$$
+```
 
 This provides a common model-based evaluation space.
 
@@ -610,17 +610,17 @@ This provides a common model-based evaluation space.
 
 The learned-versus-analytic leg-length discrepancy is
 
-$$
+```math
 e_{\mathrm{model}}
 =
 \hat{L}(T)-L_{\mathrm{geom}}(T)
-$$
+```
 
 ### Jacobian discrepancy
 
 At selected diagnostic steps, the script computes
 
-$$
+```math
 \frac{
 \left\|
 J_{\theta}-J_{\mathrm{geom}}
@@ -630,7 +630,7 @@ J_{\theta}-J_{\mathrm{geom}}
 J_{\mathrm{geom}}
 \right\|_F
 }
-$$
+```
 
 ### Runtime
 
