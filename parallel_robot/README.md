@@ -472,12 +472,12 @@ another 6-SPS mechanism.
 
 The analytic body schema uses the finite-difference Jacobian
 
-$$
+```math
 J_{\mathrm{geom}}
 =
 \frac{\partial L}
 {\partial [x,y,z,\mathrm{roll},\mathrm{pitch},\mathrm{yaw}]}
-$$
+```
 
 The default perturbations are:
 
