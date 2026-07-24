@@ -195,9 +195,3 @@ as a complete measure of equivalence between the methods.
 
 All reported deviations are algorithmic-level, model-based metrics rather than
 physical measurements.
-
-## Citation
-
-When using these benchmarks, please cite the accompanying KS-MP article.
-
-The full citation will be added following publication.
