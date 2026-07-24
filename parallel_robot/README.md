@@ -22,8 +22,7 @@ parallel_robot/
 ├── README.md
 ├── pmp_parallel.py
 ├── compare_body_schemas.py
-└── models/
-    └── parallel_body_schema.pth
+└── parallel_body_schema.pth
 ```
 
 ## Files
